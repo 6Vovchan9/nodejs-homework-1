@@ -12,18 +12,6 @@ const argv = yargs
     .alias('help', 'h')
     .version(version)
     .alias('version', 'v')
-    // .option('input', {
-    //     alias: 'i',
-    //     describe: 'Path for input folder',
-    //     required: true,
-    //     type: "string"
-    // })
-    // .option('output', {
-    //     alias: 'o',
-    //     describe: 'Path for input folder',
-    //     required: true,
-    //     type: "string"
-    // })
     .options({
         'output': {
             alias: 'o',
@@ -47,7 +35,8 @@ const config = {
     }
 }
 
-// const readDir = util.promisify(fs.readdir)
+const asyncDelDir = util.promisify(fs.rmdir);
+const asyncCreateDir = util.promisify(fs.mkdir);
 
 const base = config.paths.input;
 
@@ -62,8 +51,28 @@ function copyFiles(list) {
     })
 }
 
-function deleteDir (path) {
-    fs.rmdirSync(path, { recursive: true })
+function getFiles(pathMy) {
+    let list = [];
+
+    getFilesInOneDir(pathMy);
+
+    function getFilesInOneDir(pathIn) {
+        let files = fs.readdirSync(pathIn);
+    
+        files.forEach(el => {
+            let localBase = path.join(pathIn, el);
+            let state = fs.statSync(localBase)
+    
+            if (state.isDirectory()) {
+                getFilesInOneDir(localBase)
+            } else {
+                let firstSym = path.parse(localBase).name[0].toUpperCase();
+                list.push({el, href: localBase, firstSym})
+            }
+        })
+    }
+
+    return list;
 }
 
 if (!fs.existsSync(base)) {
@@ -71,48 +80,25 @@ if (!fs.existsSync(base)) {
     return
 }
 
-let array = [];
+let filesForReplace = getFiles(base);
 
-const readDir = (base) => {
-    const files = fs.readdirSync(base);
-
-    files.forEach(el => {
-        let localBase = path.join(base, el);
-        let state = fs.statSync(localBase)
-
-        if (state.isDirectory()) {
-            readDir(localBase)
-        } else {
-            let firstSym = path.parse(localBase).name[0].toUpperCase();
-            array.push({el, href: localBase, firstSym})
-        }
-    })
-}
-
-readDir(base);
-
-if (!array.length) {
+if (!filesForReplace.length) {
     console.warn('input folder is empty!');
     return
 }
 
-deleteDir(config.paths.output);
+(async () => {
+    await asyncDelDir(config.paths.output, { recursive: true });
+    await asyncCreateDir(argv.output);
 
-fs.mkdir(argv.output, () => {
-
-    let newDirName = array.map(el => el.firstSym);
-    // console.warn(newDirName);
-    // console.warn(config.paths.output);
+    let newDirName = filesForReplace.map(el => el.firstSym);
     newDirName.forEach(el => {
-        // const dirname = path.join(argv.output, el)
         const dirname = `${argv.output}/${el}`;
         if (!fs.existsSync(dirname)) {
-            // console.warn('создаем: ', dirname);
             fs.mkdirSync(dirname)
         }
     })
 
-    copyFiles(array);
+    await copyFiles(filesForReplace);
     // deleteDir(config.paths.input);
-})
-
+})()
