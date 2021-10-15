@@ -75,30 +75,43 @@ function getFiles(pathMy) {
     return list;
 }
 
-if (!fs.existsSync(base)) {
-    console.log('input folder is absent!');
-    return
-}
+// if (!fs.existsSync(base)) {
+//     console.log('input folder is absent!');
+//     return
+// }
 
-let filesForReplace = getFiles(base);
+fs.exists(base, (e) => {
+    if (e) {
 
-if (!filesForReplace.length) {
-    console.warn('input folder is empty!');
-    return
-}
+        let filesForReplace = getFiles(base);
 
-(async () => {
-    await asyncDelDir(config.paths.output, { recursive: true });
-    await asyncCreateDir(argv.output);
-
-    let newDirName = filesForReplace.map(el => el.firstSym);
-    newDirName.forEach(el => {
-        const dirname = `${argv.output}/${el}`;
-        if (!fs.existsSync(dirname)) {
-            fs.mkdirSync(dirname)
+        if (!filesForReplace.length) {
+            console.warn('input folder is empty!');
+            return
         }
-    })
 
-    await copyFiles(filesForReplace);
-    // deleteDir(config.paths.input);
-})()
+        (async () => {
+            await asyncDelDir(config.paths.output, { recursive: true });
+            await asyncCreateDir(argv.output);
+
+            let newDirName = filesForReplace.map(el => el.firstSym);
+            newDirName.forEach(el => {
+                const dirname = `${argv.output}/${el}`;
+
+                if (!fs.existsSync(dirname)) {
+                    fs.mkdirSync(dirname)
+                }
+                
+            })
+
+            await copyFiles(filesForReplace);
+            // deleteDir(config.paths.input);
+        })()
+
+    } else {
+        console.log('input folder is absent!');
+        return
+    }
+})
+
+// npm start -- -i src -o dist
